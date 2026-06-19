@@ -7,11 +7,18 @@ const ZOOM_LEVELS = [
 const COLORS = ["#4f86f7", "#22a06b", "#e5484d", "#f5a623", "#9b59b6", "#1abc9c"];
 
 const WINDOW_STORAGE_KEY = "gantt-window";
+const SIDEBAR_WIDTH_KEY = "gantt-sidebar-width";
+const SIDEBAR_MIN = 120;
+const SIDEBAR_MAX = 480;
+const SIDEBAR_DEFAULT = 200;
+const ROW_HEIGHT = 44;
+const ROW_HEIGHT_WITH_DESC = 60;
 
 let tasks = [];
 let zoomIndex = 1;
 let windowStart = null;
 let windowEnd = null;
+let sidebarWidth = SIDEBAR_DEFAULT;
 let editingId = null;
 let saveTimer = null;
 
@@ -55,6 +62,65 @@ function scheduleSave() {
 
 function setHint(text) {
   if (hintEl) hintEl.textContent = text;
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function escapeAttr(str) {
+  return escapeHtml(str).replace(/'/g, "&#39;");
+}
+
+function rowHeight(task) {
+  return task.description?.trim() ? ROW_HEIGHT_WITH_DESC : ROW_HEIGHT;
+}
+
+function totalChartHeight() {
+  return tasks.reduce((sum, t) => sum + rowHeight(t), 0);
+}
+
+function loadSidebarWidth() {
+  const saved = Number(localStorage.getItem(SIDEBAR_WIDTH_KEY));
+  if (Number.isFinite(saved)) applySidebarWidth(saved, { persist: false });
+  else applySidebarWidth(SIDEBAR_DEFAULT, { persist: false });
+}
+
+function applySidebarWidth(width, { persist = true } = {}) {
+  sidebarWidth = Math.max(SIDEBAR_MIN, Math.min(SIDEBAR_MAX, width));
+  document.documentElement.style.setProperty("--sidebar-width", `${sidebarWidth}px`);
+  if (persist) localStorage.setItem(SIDEBAR_WIDTH_KEY, String(sidebarWidth));
+}
+
+function setupSidebarResize() {
+  const handle = document.getElementById("sidebar-resize");
+  if (!handle || handle.dataset.bound) return;
+  handle.dataset.bound = "1";
+
+  handle.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = sidebarWidth;
+    handle.classList.add("resizing");
+    handle.setPointerCapture?.(e.pointerId);
+
+    const onMove = (ev) => {
+      applySidebarWidth(startWidth + (ev.clientX - startX));
+    };
+
+    const onUp = () => {
+      handle.classList.remove("resizing");
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
+    };
+
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+  });
 }
 
 function parseDate(str) {
@@ -166,14 +232,22 @@ function render() {
   }
 
   sidebar.innerHTML = `<div class="sidebar-header">Tasks</div>` +
-    tasks.map((t) => `<div class="task-label" data-id="${t.id}" title="${t.name}">${t.name}</div>`).join("");
+    tasks.map((t) => {
+      const h = rowHeight(t);
+      const desc = t.description?.trim();
+      return `<div class="task-label${desc ? " has-description" : ""}" data-id="${t.id}" style="height:${h}px" title="${escapeAttr(t.name)}">
+        <span class="task-name">${escapeHtml(t.name)}</span>
+        ${desc ? `<span class="task-description">${escapeHtml(desc)}</span>` : ""}
+      </div>`;
+    }).join("");
 
+  const chartHeight = totalChartHeight();
   timelineHeader.style.width = width + "px";
   timelineHeader.innerHTML = buildHeaderCells(bounds, totalDays);
 
   timelineBody.style.width = width + "px";
   timelineBody.innerHTML =
-    `<div class="grid-overlay" style="width:${width}px;height:${tasks.length * 44}px">` +
+    `<div class="grid-overlay" style="width:${width}px;height:${chartHeight}px">` +
     buildGrid(bounds, totalDays) + buildTodayLine(bounds) +
     `</div>` +
     tasks.map((t) => buildTaskRow(t, bounds)).join("");
@@ -248,11 +322,12 @@ function buildTaskRow(task, bounds) {
   const end = parseDate(task.end);
   const left = daysBetween(bounds.start, start) * ppd;
   const width = Math.max((daysBetween(start, end) + 1) * ppd - 2, 8);
+  const h = rowHeight(task);
 
-  return `<div class="timeline-row">
-    <div class="task-bar" data-id="${task.id}" style="left:${left}px;width:${width}px;background:${task.color}" title="${task.name}: ${task.start} → ${task.end}">
+  return `<div class="timeline-row" style="height:${h}px">
+    <div class="task-bar" data-id="${task.id}" style="left:${left}px;width:${width}px;background:${task.color}" title="${escapeAttr(task.name)}: ${task.start} → ${task.end}">
       <span class="resize-handle left" data-resize="start"></span>
-      ${task.name}
+      ${escapeHtml(task.name)}
       <span class="resize-handle right" data-resize="end"></span>
     </div>
   </div>`;
@@ -343,6 +418,7 @@ function openDialog(id) {
 
   document.getElementById("dialog-title").textContent = "Edit task";
   document.getElementById("task-name").value = task.name;
+  document.getElementById("task-description").value = task.description || "";
   document.getElementById("task-start").value = task.start;
   document.getElementById("task-end").value = task.end;
   document.getElementById("task-color").value = task.color;
@@ -358,6 +434,7 @@ function openNewDialog() {
 
   document.getElementById("dialog-title").textContent = "Add task";
   document.getElementById("task-name").value = "";
+  document.getElementById("task-description").value = "";
   document.getElementById("task-start").value = today;
   document.getElementById("task-end").value = end;
   document.getElementById("task-color").value = COLORS[tasks.length % COLORS.length];
@@ -369,17 +446,20 @@ function openNewDialog() {
 form.addEventListener("submit", (e) => {
   e.preventDefault();
   const name = document.getElementById("task-name").value.trim();
+  const description = document.getElementById("task-description").value.trim();
   const start = document.getElementById("task-start").value;
   const end = document.getElementById("task-end").value;
   const color = document.getElementById("task-color").value;
 
   if (!name || !start || !end || start > end) return;
 
+  const payload = { name, description, start, end, color };
+
   if (editingId) {
     const task = tasks.find((t) => t.id === editingId);
-    if (task) Object.assign(task, { name, start, end, color });
+    if (task) Object.assign(task, payload);
   } else {
-    tasks.push({ id: crypto.randomUUID(), name, start, end, color });
+    tasks.push({ id: crypto.randomUUID(), ...payload });
   }
 
   dialog.close();
@@ -439,7 +519,11 @@ document.getElementById("import-input").addEventListener("change", (e) => {
     try {
       const imported = JSON.parse(reader.result);
       if (Array.isArray(imported) && imported.every((t) => t.name && t.start && t.end)) {
-        tasks = imported.map((t) => ({ ...t, id: t.id || crypto.randomUUID() }));
+        tasks = imported.map((t) => ({
+          ...t,
+          id: t.id || crypto.randomUUID(),
+          description: t.description || "",
+        }));
         updateAndSave();
       }
     } catch (_) {}
@@ -449,8 +533,10 @@ document.getElementById("import-input").addEventListener("change", (e) => {
 });
 
 async function init() {
+  loadSidebarWidth();
+  setupSidebarResize();
   try {
-    tasks = await loadTasks();
+    tasks = (await loadTasks()).map((t) => ({ ...t, description: t.description || "" }));
     ensureWindow();
     render();
   } catch {

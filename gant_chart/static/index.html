@@ -41,7 +41,10 @@
 
     <div class="chart-wrapper">
       <div class="chart" id="chart">
-        <div class="sidebar" id="sidebar"></div>
+        <div class="sidebar-panel">
+          <div class="sidebar" id="sidebar"></div>
+          <div class="sidebar-resize-handle" id="sidebar-resize" title="Drag to resize task column"></div>
+        </div>
         <div class="timeline-area">
           <div class="timeline-header" id="timeline-header"></div>
           <div class="timeline-body" id="timeline-body"></div>
@@ -49,7 +52,7 @@
       </div>
     </div>
 
-    <p class="hint">Drag bars to move · Drag edges to resize · Double-click a bar to edit · Changes save to the server</p>
+    <p class="hint">Drag bars to move · Drag edges to resize · Double-click a bar to edit · Drag the task column edge to widen it · Changes save to the server</p>
   </div>
 
   <dialog id="task-dialog">
@@ -58,6 +61,10 @@
       <label>
         Name
         <input type="text" id="task-name" required autofocus>
+      </label>
+      <label>
+        Description
+        <textarea id="task-description" rows="2" placeholder="Optional notes shown beneath the task name"></textarea>
       </label>
       <div class="form-row">
         <label>

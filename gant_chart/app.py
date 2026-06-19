@@ -42,6 +42,8 @@ def validate_task(task):
     required = {"id", "name", "start", "end", "color"}
     if not required.issubset(task.keys()):
         return False
+    if not isinstance(task.get("description", ""), str):
+        return False
     if not task["name"].strip():
         return False
     if task["start"] > task["end"]:
