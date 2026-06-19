@@ -6,8 +6,12 @@ const ZOOM_LEVELS = [
 
 const COLORS = ["#4f86f7", "#22a06b", "#e5484d", "#f5a623", "#9b59b6", "#1abc9c"];
 
+const WINDOW_STORAGE_KEY = "gantt-window";
+
 let tasks = [];
 let zoomIndex = 1;
+let windowStart = null;
+let windowEnd = null;
 let editingId = null;
 let saveTimer = null;
 
@@ -15,7 +19,8 @@ const chart = document.getElementById("chart");
 const sidebar = document.getElementById("sidebar");
 const timelineHeader = document.getElementById("timeline-header");
 const timelineBody = document.getElementById("timeline-body");
-const dateRangeEl = document.getElementById("date-range");
+const windowStartInput = document.getElementById("window-start");
+const windowEndInput = document.getElementById("window-end");
 const hintEl = document.querySelector(".hint");
 const dialog = document.getElementById("task-dialog");
 const form = document.getElementById("task-form");
@@ -74,7 +79,7 @@ function addDays(date, n) {
   return d;
 }
 
-function getTimelineBounds() {
+function computeBoundsFromTasks() {
   if (tasks.length === 0) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -91,6 +96,56 @@ function getTimelineBounds() {
   return { start: addDays(min, -7), end: addDays(max, 14) };
 }
 
+function loadWindowFromStorage() {
+  try {
+    const raw = localStorage.getItem(WINDOW_STORAGE_KEY);
+    if (!raw) return null;
+    const { start, end } = JSON.parse(raw);
+    if (!start || !end || start > end) return null;
+    return { start: parseDate(start), end: parseDate(end) };
+  } catch {
+    return null;
+  }
+}
+
+function saveWindowToStorage() {
+  if (!windowStart || !windowEnd) return;
+  localStorage.setItem(
+    WINDOW_STORAGE_KEY,
+    JSON.stringify({ start: formatDate(windowStart), end: formatDate(windowEnd) })
+  );
+}
+
+function setWindow(start, end, { persist = true } = {}) {
+  windowStart = start;
+  windowEnd = end;
+  windowStartInput.value = formatDate(start);
+  windowEndInput.value = formatDate(end);
+  if (persist) saveWindowToStorage();
+}
+
+function ensureWindow() {
+  if (windowStart && windowEnd && windowStart <= windowEnd) return;
+  const saved = loadWindowFromStorage();
+  if (saved) {
+    setWindow(saved.start, saved.end, { persist: false });
+    return;
+  }
+  const bounds = computeBoundsFromTasks();
+  setWindow(bounds.start, bounds.end);
+}
+
+function getTimelineBounds() {
+  ensureWindow();
+  return { start: windowStart, end: windowEnd };
+}
+
+function syncWindowInputs() {
+  const bounds = getTimelineBounds();
+  windowStartInput.value = formatDate(bounds.start);
+  windowEndInput.value = formatDate(bounds.end);
+}
+
 function pxPerDay() {
   return ZOOM_LEVELS[zoomIndex].pxPerDay;
 }
@@ -100,7 +155,7 @@ function render() {
   const totalDays = daysBetween(bounds.start, bounds.end) + 1;
   const width = totalDays * pxPerDay();
 
-  dateRangeEl.textContent = `${bounds.start.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })} — ${bounds.end.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`;
+  syncWindowInputs();
   document.getElementById("zoom-label").textContent = ZOOM_LEVELS[zoomIndex].label;
 
   if (tasks.length === 0) {
@@ -181,7 +236,8 @@ function buildTodayLine(bounds) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const offset = daysBetween(bounds.start, today);
-  if (offset < 0) return "";
+  const totalDays = daysBetween(bounds.start, bounds.end) + 1;
+  if (offset < 0 || offset >= totalDays) return "";
   const ppd = pxPerDay();
   return `<div class="today-line" style="left:${offset * ppd + ppd / 2}px"></div>`;
 }
@@ -349,6 +405,23 @@ document.getElementById("zoom-out").addEventListener("click", () => {
   if (zoomIndex > 0) { zoomIndex--; render(); }
 });
 
+function applyWindowFromInputs() {
+  const start = windowStartInput.value;
+  const end = windowEndInput.value;
+  if (!start || !end || start > end) return;
+  setWindow(parseDate(start), parseDate(end));
+  render();
+}
+
+windowStartInput.addEventListener("change", applyWindowFromInputs);
+windowEndInput.addEventListener("change", applyWindowFromInputs);
+
+document.getElementById("fit-tasks-btn").addEventListener("click", () => {
+  const bounds = computeBoundsFromTasks();
+  setWindow(bounds.start, bounds.end);
+  render();
+});
+
 document.getElementById("export-btn").addEventListener("click", () => {
   const blob = new Blob([JSON.stringify(tasks, null, 2)], { type: "application/json" });
   const a = document.createElement("a");
@@ -378,6 +451,7 @@ document.getElementById("import-input").addEventListener("change", (e) => {
 async function init() {
   try {
     tasks = await loadTasks();
+    ensureWindow();
     render();
   } catch {
     setHint("Could not connect to server — run: python app.py");

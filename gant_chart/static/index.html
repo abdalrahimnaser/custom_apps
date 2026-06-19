@@ -21,7 +21,17 @@
     </header>
 
     <div class="toolbar">
-      <span id="date-range" class="date-range"></span>
+      <div class="window-controls">
+        <label class="window-field">
+          <span>From</span>
+          <input type="date" id="window-start" title="Timeline start">
+        </label>
+        <label class="window-field">
+          <span>To</span>
+          <input type="date" id="window-end" title="Timeline end">
+        </label>
+        <button id="fit-tasks-btn" class="btn small" title="Fit timeline to all tasks">Fit tasks</button>
+      </div>
       <div class="zoom-controls">
         <button id="zoom-out" class="btn small" title="Zoom out">−</button>
         <span id="zoom-label">Day</span>
