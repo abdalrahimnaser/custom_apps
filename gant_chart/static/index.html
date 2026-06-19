@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gantt Chart</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>Gantt Chart</h1>
+      <div class="header-actions">
+        <button id="add-task-btn" class="btn primary">+ Add task</button>
+        <button id="export-btn" class="btn">Export</button>
+        <label class="btn import-label">
+          Import
+          <input type="file" id="import-input" accept=".json" hidden>
+        </label>
+      </div>
+    </header>
+
+    <div class="toolbar">
+      <span id="date-range" class="date-range"></span>
+      <div class="zoom-controls">
+        <button id="zoom-out" class="btn small" title="Zoom out">−</button>
+        <span id="zoom-label">Day</span>
+        <button id="zoom-in" class="btn small" title="Zoom in">+</button>
+      </div>
+    </div>
+
+    <div class="chart-wrapper">
+      <div class="chart" id="chart">
+        <div class="sidebar" id="sidebar"></div>
+        <div class="timeline-area">
+          <div class="timeline-header" id="timeline-header"></div>
+          <div class="timeline-body" id="timeline-body"></div>
+        </div>
+      </div>
+    </div>
+
+    <p class="hint">Drag bars to move · Drag edges to resize · Double-click a bar to edit · Changes save to the server</p>
+  </div>
+
+  <dialog id="task-dialog">
+    <form id="task-form" method="dialog">
+      <h2 id="dialog-title">Edit task</h2>
+      <label>
+        Name
+        <input type="text" id="task-name" required autofocus>
+      </label>
+      <div class="form-row">
+        <label>
+          Start
+          <input type="date" id="task-start" required>
+        </label>
+        <label>
+          End
+          <input type="date" id="task-end" required>
+        </label>
+      </div>
+      <label>
+        Color
+        <input type="color" id="task-color" value="#4f86f7">
+      </label>
+      <div class="dialog-actions">
+        <button type="button" id="delete-task-btn" class="btn danger">Delete</button>
+        <div class="dialog-actions-right">
+          <button type="button" id="cancel-btn" class="btn">Cancel</button>
+          <button type="submit" class="btn primary">Save</button>
+        </div>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
