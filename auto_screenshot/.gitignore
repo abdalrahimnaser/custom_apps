@@ -1,0 +1,4 @@
+screenshots/
+.venv/
+.venv_auto_screenshot/
+__pycache__/
