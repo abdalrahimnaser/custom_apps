@@ -2,3 +2,6 @@ screenshots/
 .venv/
 .venv_auto_screenshot/
 __pycache__/
+build/
+dist/
+icon.ico

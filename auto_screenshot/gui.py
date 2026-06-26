@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Simple GUI for periodic screenshots."""
+"""Settings window for Auto Screenshot."""
 
 from __future__ import annotations
 
@@ -7,23 +7,39 @@ import tkinter as tk
 from datetime import datetime
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
+from typing import Callable
 
+from config import AppConfig, load_config, save_config
 from screenshot import ScreenshotScheduler, ScreenshotSettings, list_monitors
+
+SaveCallback = Callable[[AppConfig], None]
 
 
 class ScreenshotApp:
-    def __init__(self, root: tk.Tk) -> None:
+    def __init__(
+        self,
+        root: tk.Tk,
+        *,
+        tray_mode: bool = False,
+        on_save: SaveCallback | None = None,
+        on_hide: Callable[[], None] | None = None,
+    ) -> None:
         self.root = root
+        self.tray_mode = tray_mode
+        self.on_save = on_save
+        self.on_hide = on_hide
         self.root.title("Auto Screenshot")
-        self.root.minsize(420, 480)
+        self.root.minsize(420, 520)
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
 
         self.scheduler: ScreenshotScheduler | None = None
         self.monitor_options: list[tuple[int, str]] = []
+        self.config = load_config()
 
         self._build_ui()
         self._load_monitors()
+        self._apply_config(self.config)
         self._set_running(False)
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
@@ -51,8 +67,7 @@ class ScreenshotApp:
         output_row.grid(row=1, column=1, sticky="ew", pady=(0, 8))
         output_row.columnconfigure(0, weight=1)
 
-        default_output = Path(__file__).resolve().parent / "screenshots"
-        self.output_var = tk.StringVar(value=str(default_output))
+        self.output_var = tk.StringVar()
         self.output_entry = ttk.Entry(output_row, textvariable=self.output_var)
         self.output_entry.grid(row=0, column=0, sticky="ew", padx=(0, 8))
         self.browse_button = ttk.Button(
@@ -87,8 +102,18 @@ class ScreenshotApp:
         )
         self.monitor_combo.grid(row=3, column=1, sticky="ew", pady=(0, 8))
 
+        self.autostart_var = tk.BooleanVar(value=True)
+        self.autostart_check = ttk.Checkbutton(
+            frame,
+            text="Run at Windows login",
+            variable=self.autostart_var,
+        )
+        self.autostart_check.grid(row=4, column=0, columnspan=2, sticky="w", pady=(0, 8))
+        if not _is_windows():
+            self.autostart_check.state(["disabled"])
+
         button_row = ttk.Frame(frame)
-        button_row.grid(row=4, column=0, columnspan=2, sticky="ew", pady=(8, 12))
+        button_row.grid(row=5, column=0, columnspan=2, sticky="ew", pady=(8, 12))
         button_row.columnconfigure((0, 1, 2), weight=1)
 
         self.start_button = ttk.Button(button_row, text="Start", command=self._start)
@@ -102,17 +127,24 @@ class ScreenshotApp:
         )
         self.capture_button.grid(row=0, column=2, sticky="ew", padx=(6, 0))
 
-        self.status_var = tk.StringVar(value="Ready")
-        ttk.Label(frame, textvariable=self.status_var).grid(
-            row=5, column=0, columnspan=2, sticky="w", pady=(0, 8)
+        save_row = ttk.Frame(frame)
+        save_row.grid(row=6, column=0, columnspan=2, sticky="ew", pady=(0, 8))
+        save_row.columnconfigure(0, weight=1)
+        ttk.Button(save_row, text="Save settings", command=self._save_settings).grid(
+            row=0, column=0, sticky="ew"
         )
 
-        ttk.Label(frame, text="Log").grid(row=6, column=0, columnspan=2, sticky="w")
+        self.status_var = tk.StringVar(value="Ready")
+        ttk.Label(frame, textvariable=self.status_var).grid(
+            row=7, column=0, columnspan=2, sticky="w", pady=(0, 8)
+        )
+
+        ttk.Label(frame, text="Log").grid(row=8, column=0, columnspan=2, sticky="w")
         log_frame = ttk.Frame(frame)
-        log_frame.grid(row=7, column=0, columnspan=2, sticky="nsew")
+        log_frame.grid(row=9, column=0, columnspan=2, sticky="nsew")
         log_frame.columnconfigure(0, weight=1)
         log_frame.rowconfigure(0, weight=1)
-        frame.rowconfigure(7, weight=1)
+        frame.rowconfigure(9, weight=1)
 
         self.log_text = tk.Text(log_frame, height=12, wrap="word", state="disabled")
         self.log_text.grid(row=0, column=0, sticky="nsew")
@@ -122,6 +154,16 @@ class ScreenshotApp:
         )
         scrollbar.grid(row=0, column=1, sticky="ns")
         self.log_text.configure(yscrollcommand=scrollbar.set)
+
+    def _apply_config(self, config: AppConfig) -> None:
+        self.config = config
+        self.interval_var.set(str(config.interval_minutes))
+        self.output_var.set(config.output_dir)
+        self.quality_var.set(config.quality)
+        self.autostart_var.set(config.autostart)
+        self._update_quality_label()
+        if config.monitor_label:
+            self.monitor_var.set(config.monitor_label)
 
     def _update_quality_label(self, _value: str = "") -> None:
         self.quality_label.configure(text=str(self.quality_var.get()))
@@ -136,7 +178,7 @@ class ScreenshotApp:
             self.monitor_options = list_monitors()
             labels = [label for _, label in self.monitor_options]
             self.monitor_combo["values"] = labels
-            if labels:
+            if labels and not self.monitor_var.get():
                 self.monitor_var.set(labels[0])
         except Exception as exc:
             self._log(f"Could not list monitors: {exc}")
@@ -149,22 +191,25 @@ class ScreenshotApp:
         for index, option_label in self.monitor_options:
             if option_label == label:
                 return index
-        return 0
+        return self.config.monitor_index
 
-    def _read_settings(self) -> ScreenshotSettings | None:
+    def _read_settings(self, *, show_errors: bool = True) -> ScreenshotSettings | None:
         try:
             interval = float(self.interval_var.get())
         except ValueError:
-            messagebox.showerror("Invalid interval", "Enter a valid number of minutes.")
+            if show_errors:
+                messagebox.showerror("Invalid interval", "Enter a valid number of minutes.")
             return None
 
         if interval <= 0:
-            messagebox.showerror("Invalid interval", "Interval must be greater than 0.")
+            if show_errors:
+                messagebox.showerror("Invalid interval", "Interval must be greater than 0.")
             return None
 
         output = self.output_var.get().strip()
         if not output:
-            messagebox.showerror("Missing folder", "Choose a folder to save screenshots.")
+            if show_errors:
+                messagebox.showerror("Missing folder", "Choose a folder to save screenshots.")
             return None
 
         return ScreenshotSettings(
@@ -173,6 +218,92 @@ class ScreenshotApp:
             quality=int(self.quality_var.get()),
             monitor_index=self._selected_monitor_index(),
         )
+
+    def _build_config(self, *, running: bool | None = None) -> AppConfig | None:
+        settings = self._read_settings()
+        if settings is None:
+            return None
+
+        if running is not None:
+            running_value = running
+        elif self.scheduler:
+            running_value = self.scheduler.running
+        else:
+            running_value = self.config.running
+
+        return AppConfig.from_settings(
+            settings,
+            self.monitor_var.get(),
+            autostart=self.autostart_var.get(),
+            running=running_value,
+        )
+
+    def _save_settings(self) -> bool:
+        config = self._build_config()
+        if config is None:
+            return False
+
+        save_config(config)
+        self.config = config
+        if self.on_save:
+            self.on_save(config)
+        self._log("Settings saved")
+        self.status_var.set("Settings saved")
+        return True
+
+    def show_window(self) -> None:
+        self.root.deiconify()
+        self.root.lift()
+        self.root.focus_force()
+
+    def hide_window(self) -> None:
+        self.root.withdraw()
+
+    @property
+    def is_running(self) -> bool:
+        return self.scheduler is not None and self.scheduler.running
+
+    def start_scheduler(self) -> bool:
+        if self.is_running:
+            return True
+
+        settings = self._read_settings(show_errors=False)
+        if settings is None:
+            settings = self.config.to_settings()
+
+        self.scheduler = ScreenshotScheduler(
+            settings,
+            on_capture=self._on_capture,
+            on_error=self._on_error,
+            on_status=self._on_status,
+        )
+        self.scheduler.start()
+        self._set_running(True)
+        self._log(f"Started: every {settings.interval_minutes:g} min -> {settings.output_dir}")
+        return True
+
+    def stop_scheduler(self) -> None:
+        if self.scheduler:
+            self.scheduler.stop()
+        self._set_running(False)
+        self._persist_running(False)
+
+    def capture_now(self) -> None:
+        settings = self._read_settings(show_errors=False)
+        if settings is None:
+            settings = self.config.to_settings()
+
+        if self.scheduler is None or not self.scheduler.running:
+            self.scheduler = ScreenshotScheduler(
+                settings,
+                on_capture=self._on_capture,
+                on_error=self._on_error,
+                on_status=self._on_status,
+            )
+        else:
+            self.scheduler.settings = settings
+
+        self.scheduler.capture_once()
 
     def _set_running(self, running: bool) -> None:
         start_state = "disabled" if running else "normal"
@@ -196,45 +327,23 @@ class ScreenshotApp:
     def _ui(self, callback) -> None:
         self.root.after(0, callback)
 
+    def _persist_running(self, running: bool) -> None:
+        self.config.running = running
+        save_config(self.config)
+
     def _start(self) -> None:
-        if self.scheduler and self.scheduler.running:
+        if self.is_running:
             return
-
-        settings = self._read_settings()
-        if settings is None:
+        if not self._save_settings():
             return
-
-        self.scheduler = ScreenshotScheduler(
-            settings,
-            on_capture=self._on_capture,
-            on_error=self._on_error,
-            on_status=self._on_status,
-        )
-        self.scheduler.start()
-        self._set_running(True)
-        self._log(f"Started: every {settings.interval_minutes:g} min -> {settings.output_dir}")
+        self.start_scheduler()
+        self._persist_running(True)
 
     def _stop(self) -> None:
-        if self.scheduler:
-            self.scheduler.stop()
-        self._set_running(False)
+        self.stop_scheduler()
 
     def _capture_now(self) -> None:
-        settings = self._read_settings()
-        if settings is None:
-            return
-
-        if self.scheduler is None or not self.scheduler.running:
-            self.scheduler = ScreenshotScheduler(
-                settings,
-                on_capture=self._on_capture,
-                on_error=self._on_error,
-                on_status=self._on_status,
-            )
-        else:
-            self.scheduler.settings = settings
-
-        self.scheduler.capture_once()
+        self.capture_now()
         self._log("Manual capture requested")
 
     def _on_capture(self, path: Path, size_kb: float) -> None:
@@ -254,9 +363,21 @@ class ScreenshotApp:
         self._ui(lambda: self.status_var.set(message))
 
     def _on_close(self) -> None:
+        if self.tray_mode:
+            self.hide_window()
+            if self.on_hide:
+                self.on_hide()
+            return
+
         if self.scheduler:
             self.scheduler.stop()
         self.root.destroy()
+
+
+def _is_windows() -> bool:
+    import sys
+
+    return sys.platform == "win32"
 
 
 def main() -> None:
