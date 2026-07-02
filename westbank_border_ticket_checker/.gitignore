@@ -1,0 +1,6 @@
+.venv/
+.west_bank_venv/
+__pycache__/
+*.pyc
+.brave_profile/
+khb_session.json

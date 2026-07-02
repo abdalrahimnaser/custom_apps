@@ -1,0 +1,98 @@
+[
+  {
+    "color": "#4f86f7",
+    "description": "Schematic capture and PCB layout - V2 CE Aware",
+    "end": "2026-06-25",
+    "id": "509982c4-379a-4f3a-996b-5728a0171829",
+    "name": "PCB",
+    "start": "2026-06-20"
+  },
+  {
+    "color": "#e5484d",
+    "description": "",
+    "end": "2026-07-08",
+    "id": "f7777e53-e1b6-4381-b7c0-912bb4511b1a",
+    "name": "Emails/Texting - Numpads: procurement and customisation (key for growth & launch post sales)",
+    "start": "2026-06-26"
+  },
+  {
+    "color": "#f5a623",
+    "description": "",
+    "end": "2026-06-25",
+    "id": "8d213827-c3d4-4c8f-a535-12460ad41727",
+    "name": "V2 FW Planning - any critical changes needed?",
+    "start": "2026-06-20"
+  },
+  {
+    "color": "#1d3f39",
+    "description": "",
+    "end": "2026-07-08",
+    "id": "4c6a4e44-2e62-47eb-b76c-1a6973672352",
+    "name": "Emails/Texting  - other prod ideas",
+    "start": "2026-06-26"
+  },
+  {
+    "color": "#9b59b6",
+    "description": "",
+    "end": "2026-07-08",
+    "id": "126ef750-8720-4348-b3e2-98fff430cc09",
+    "name": "Emails/Texting  - negotiations with electrow: V2 quote, CERT quote, Sample feedback & Order",
+    "start": "2026-06-26"
+  },
+  {
+    "color": "#1abc9c",
+    "description": "Sample Testing\nPay for CE \nVisa App",
+    "end": "2026-07-19",
+    "id": "8f07a60a-25ff-4838-b052-c7d1f9bbc165",
+    "name": "See notes",
+    "start": "2026-07-16"
+  },
+  {
+    "color": "#4f86f7",
+    "description": "",
+    "end": "2026-08-31",
+    "id": "cc929053-4519-4491-8a17-65f2d4a6d90b",
+    "name": "Marketing Strategy - Order Stock incl. packaging - Wait for Visa App",
+    "start": "2026-08-01"
+  },
+  {
+    "color": "#22a06b",
+    "description": "",
+    "end": "2026-09-12",
+    "id": "c461dcab-632e-4fb4-a6f4-7dd5c3deae4c",
+    "name": "Sales & Growth based on the marketing strategy",
+    "start": "2026-09-01"
+  },
+  {
+    "color": "#e5484d",
+    "description": "",
+    "end": "2026-08-02",
+    "id": "94867d7c-16c8-4c11-b7f9-ef37737c5c10",
+    "name": "V2 FW",
+    "start": "2026-07-25"
+  },
+  {
+    "color": "#f5a623",
+    "description": "",
+    "end": "2026-08-04",
+    "id": "2bae836b-799e-42a9-b62a-42939131bcf2",
+    "name": "Stock order",
+    "start": "2026-08-01"
+  },
+  {
+    "id": "760905db-be9a-4b33-b661-a6eff9b41386",
+    "name": "Sample Order - Packaging Aliexpress & V2 PCB",
+    "description": "",
+    "start": "2026-06-26",
+    "end": "2026-07-08",
+    "color": "#9b59b6"
+  },
+  {
+    "id": "c754f3ca-925f-44d2-ae36-610ceb0e0e9b",
+    "name": "also launch on CS so it gets featured on CNX, Circuit Digest, Hackster .... etc",
+    "description": "",
+    "start": "2026-08-01",
+    "end": "2026-08-31",
+    "color": "#1abc9c"
+  }
+]
