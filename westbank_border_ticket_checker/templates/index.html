@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>مراقب تذاكر JETT VIP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="header-brand">
+        <div class="logo" aria-hidden="true">🎫</div>
+        <div>
+          <h1>مراقب تذاكر JETT VIP</h1>
+          <p class="subtitle">جسر الملك حسين — الخدمة B</p>
+        </div>
+      </div>
+      <div class="status-pill" id="status-pill">
+        <span class="status-dot" id="status-dot"></span>
+        <span id="status-text">جاري التحميل…</span>
+      </div>
+    </header>
+
+    <main class="grid">
+      <section class="card card-controls span-2">
+        <h2>المراقبة</h2>
+        <p class="card-desc">اختر تواريخ السفر ومدة الفحص. يُفحص موقع JETT VIP تلقائياً ويُرسل تنبيه عند توفر مقاعد.</p>
+
+        <form id="config-form" class="form">
+          <div class="form-row">
+            <label>
+              <span>من تاريخ</span>
+              <input type="date" name="start_date" required>
+            </label>
+            <label>
+              <span>إلى تاريخ</span>
+              <input type="date" name="end_date" required>
+            </label>
+          </div>
+
+          <label>
+            <span>التحقق كل</span>
+            <div class="interval-row">
+              <input type="range" name="interval_slider" min="10" max="900" step="10" value="300">
+              <input type="number" name="interval_seconds" min="10" max="3600" step="10" value="300">
+              <span class="unit">ثانية</span>
+            </div>
+            <small class="hint" id="interval-hint">≈ 5 دقائق</small>
+          </label>
+
+          <fieldset class="toggle-group">
+            <legend>الإشعارات</legend>
+            <label class="toggle">
+              <input type="checkbox" name="notify_sound" checked>
+              <span class="toggle-ui"></span>
+              <span class="toggle-label">
+                <strong>صوت في المتصفح</strong>
+                <small>تشغيل نغمة عند ظهور التذاكر</small>
+              </span>
+            </label>
+          </fieldset>
+
+          <details class="telegram-details" open>
+            <summary>إشعارات تيليغرام</summary>
+            <label>
+              <span>رمز البوت</span>
+              <input type="password" name="telegram_bot_token" placeholder="123456:ABC…" autocomplete="off">
+            </label>
+            <label>
+              <span>معرّف المحادثة</span>
+              <input type="text" name="telegram_chat_id" placeholder="Chat ID">
+            </label>
+            <p class="hint">أنشئ بوتاً عبر <a href="https://t.me/BotFather" target="_blank" rel="noopener">@BotFather</a> ثم أرسل له رسالة للحصول على Chat ID.</p>
+          </details>
+
+          <div class="button-row">
+            <button type="submit" class="btn btn-secondary">حفظ الإعدادات</button>
+          </div>
+        </form>
+
+        <div class="action-bar">
+          <button type="button" class="btn btn-primary" id="btn-scan-once">تحقق الآن</button>
+          <button type="button" class="btn btn-success" id="btn-start">بدء المراقبة</button>
+          <button type="button" class="btn btn-danger hidden" id="btn-stop">إيقاف المراقبة</button>
+        </div>
+
+        <div class="meta-row" id="scan-meta"></div>
+      </section>
+
+      <section class="card card-findings span-2">
+        <div class="card-header-row">
+          <h2>التذاكر المتاحة</h2>
+          <div class="card-header-actions">
+            <span class="badge" id="findings-count">0 تذكرة</span>
+            <button type="button" class="btn btn-ghost btn-sm" id="btn-clear-findings">مسح القائمة</button>
+          </div>
+        </div>
+        <div id="findings-list" class="findings-list empty-state">
+          <p>لا توجد تذاكر بعد. ابدأ المراقبة أو نفّذ فحصاً واحداً.</p>
+        </div>
+      </section>
+
+      <section class="card card-logs span-2">
+        <div class="card-header-row">
+          <h2>سجل النشاط</h2>
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-clear-log">مسح العرض</button>
+        </div>
+        <div id="log-list" class="log-list"></div>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast hidden" role="status"></div>
+
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

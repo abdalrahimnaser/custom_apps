@@ -2,5 +2,6 @@
 .west_bank_venv/
 __pycache__/
 *.pyc
-.brave_profile/
+web_config.json
 khb_session.json
+.brave_profile/

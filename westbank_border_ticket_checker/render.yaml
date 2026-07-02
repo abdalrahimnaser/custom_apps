@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: border-ticket-checker
+    runtime: python
+    plan: starter
+    buildCommand: ./build.sh
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.0"
+      - key: CLOUD_DEPLOY
+        value: "1"
+      # Optional Telegram (can also set in the web UI)
+      # - key: TELEGRAM_BOT_TOKEN
+      #   sync: false
+      # - key: TELEGRAM_CHAT_ID
+      #   sync: false
